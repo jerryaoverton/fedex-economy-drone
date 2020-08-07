@@ -15,7 +15,7 @@ profile = {'image_url': 'www.pic.com/drone.jpg',
            'profile_url': 'www.mydroneprofile.com',
            'description': 'A very useful drone',
            'tags': 'drone, delivery',
-           'rating': 5,
+           'rating': 4,
            'status': 'idle'
            }
 fedex_token_network = 'http://127.0.0.1:5000/'
