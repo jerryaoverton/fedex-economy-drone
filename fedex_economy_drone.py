@@ -26,7 +26,7 @@ profile = {'image_url': 'www.pic.com/drone.jpg',
            'rating': 4,
            'status': 'idle'
            }
-fedex_token_network = 'http://127.0.0.1:5000/'
+
 
 @app.route('/')
 def home():
@@ -34,11 +34,12 @@ def home():
     wait()
     return "drone is running"
 
+
 def register_drone():
     print('registering drone')
     svc = '/register_user'
     params = '?user_id=drone'
-    url = fedex_token_network + svc + params
+    url = smart_contract + svc + params
     _msg = requests.get(url).content
 
 
@@ -46,7 +47,7 @@ def update_profile():
     print('updating drone profile')
     svc = '/update_profile'
     params = '?user_id=drone&profile=' + str(profile)
-    url = fedex_token_network + svc + params
+    url = smart_contract + svc + params
     _msg = requests.get(url).content
 
 
@@ -54,7 +55,7 @@ def update_order(order):
     print('updating drone order')
     svc = '/update_order'
     params = '?order=' + str(order)
-    url = fedex_token_network + svc + params
+    url = smart_contract + svc + params
     _msg = requests.get(url).content
 
 
