@@ -1,3 +1,4 @@
+import os
 from time import sleep
 import socketio
 import requests
@@ -6,10 +7,14 @@ ctx = {'current_job': '',
        'max_total_jobs': 10,
        'max_consecutive_jobs': 3,
        'total_jobs': 0,
+       'total_wait_cycles': 0,
+       'max_wait_cycles': 10,
        'jobs_since_maintenance': 0}
 
 sio = socketio.Client()
-sio.connect('http://localhost:5000', namespaces=['/profile', '/order'])
+
+smart_contract = os.environ['SMART_CONTRACT']
+sio.connect(smart_contract, namespaces=['/profile', '/order'])
 
 profile = {'image_url': 'www.pic.com/drone.jpg',
            'profile_url': 'www.mydroneprofile.com',
@@ -22,6 +27,7 @@ fedex_token_network = 'http://127.0.0.1:5000/'
 
 
 def register_drone():
+    print('registering drone')
     svc = '/register_user'
     params = '?user_id=drone'
     url = fedex_token_network + svc + params
@@ -29,6 +35,7 @@ def register_drone():
 
 
 def update_profile():
+    print('updating drone profile')
     svc = '/update_profile'
     params = '?user_id=drone&profile=' + str(profile)
     url = fedex_token_network + svc + params
@@ -36,6 +43,7 @@ def update_profile():
 
 
 def update_order(order):
+    print('updating drone order')
     svc = '/update_order'
     params = '?order=' + str(order)
     url = fedex_token_network + svc + params
@@ -44,6 +52,7 @@ def update_order(order):
 
 @sio.on('message', namespace='/order')
 def on_message(order):
+    print('looking for work')
     # choose a job
     # TODO: pick a job based on it's status
     if "drone" in order:
@@ -51,14 +60,18 @@ def on_message(order):
 
 
 def wait():
+    print('waiting')
     profile['status'] = 'waiting'
+    ctx['total_wait_cycles'] += 1
+
     update_profile()
     sleep(10)
 
     end_of_life = ctx['total_jobs'] >= ctx['max_total_jobs']
     hired = not (ctx['current_job'] == '')
+    idle_too_long = ctx['total_wait_cycles'] >= ctx['max_wait_cycles']
 
-    if end_of_life:
+    if end_of_life or idle_too_long:
         retire()
     elif hired:
         work()
@@ -67,6 +80,7 @@ def wait():
 
 
 def work():
+    print('working')
     ctx['jobs_since_maintenance'] += 1
     ctx['total_jobs'] += 1
 
@@ -86,6 +100,7 @@ def work():
 
 
 def get_maintenance():
+    print('getting maintenance')
     profile['status'] = 'under maintenance'
     update_profile()
 
@@ -95,6 +110,7 @@ def get_maintenance():
 
 
 def pay_for_maintenance():
+    print('paying for maintenance')
     profile['status'] = 'paying for maintenance'
     update_profile()
     sleep(10)
@@ -102,6 +118,7 @@ def pay_for_maintenance():
 
 
 def retire():
+    print('retiring')
     profile['status'] = 'retired'
     update_profile()
     print("drone is retired")
