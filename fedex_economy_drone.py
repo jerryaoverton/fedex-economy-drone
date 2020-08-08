@@ -2,11 +2,17 @@ import os
 from time import sleep
 import socketio
 import requests
-from flask import Flask
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
-ctx = {'current_job': '',
+
+# define the state of the drone
+
+
+ctx = {'drone_started': False,
+       'next_action': None,
+       'current_job': '',
        'max_total_jobs': 10,
        'max_consecutive_jobs': 3,
        'total_jobs': 0,
@@ -14,10 +20,6 @@ ctx = {'current_job': '',
        'max_wait_cycles': 10,
        'jobs_since_maintenance': 0}
 
-sio = socketio.Client()
-
-smart_contract = os.environ['SMART_CONTRACT']
-sio.connect(smart_contract, namespaces=['/profile', '/order'])
 
 profile = {'image_url': 'www.pic.com/drone.jpg',
            'profile_url': 'www.mydroneprofile.com',
@@ -28,11 +30,74 @@ profile = {'image_url': 'www.pic.com/drone.jpg',
            }
 
 
-@app.route('/')
-def home():
-    register_drone()
-    wait()
-    return "drone is running"
+# define how the drone behaves
+
+
+def wait():
+    print('waiting')
+    profile['status'] = 'waiting'
+    ctx['total_wait_cycles'] += 1
+
+    update_profile()
+    sleep(10)
+
+    end_of_life = ctx['total_jobs'] >= ctx['max_total_jobs']
+    hired = not (ctx['current_job'] == '')
+    idle_too_long = ctx['total_wait_cycles'] >= ctx['max_wait_cycles']
+
+    if end_of_life or idle_too_long:
+        return retire
+    elif hired:
+        return work
+    else:
+        return wait
+
+
+def work():
+    print('working')
+    ctx['jobs_since_maintenance'] += 1
+    ctx['total_jobs'] += 1
+
+    profile['status'] = 'working'
+    update_profile()
+
+    sleep(10)
+    # TODO: update the order status
+    ctx['current_job'] = ''
+
+    jobs_since_maintenance = ctx['jobs_since_maintenance']
+    max_consecutive_jobs = ctx['max_consecutive_jobs']
+    if jobs_since_maintenance < max_consecutive_jobs:
+        return wait
+    else:
+        return get_maintenance
+
+
+def get_maintenance():
+    print('getting maintenance')
+    profile['status'] = 'under maintenance'
+    update_profile()
+
+    ctx['jobs_since_maintenance'] = 0
+    sleep(10)
+    return pay_for_maintenance
+
+
+def pay_for_maintenance():
+    print('paying for maintenance')
+    profile['status'] = 'paying for maintenance'
+    update_profile()
+    sleep(10)
+    return wait
+
+
+def retire():
+    print('retiring')
+    profile['status'] = 'retired'
+    update_profile()
+    print("drone is retired")
+
+    return None
 
 
 def register_drone():
@@ -59,6 +124,39 @@ def update_order(order):
     _msg = requests.get(url).content
 
 
+# connect the drone and begin operation
+
+
+sio = socketio.Client()
+smart_contract = os.environ['SMART_CONTRACT']
+sio.connect(smart_contract, namespaces=['/profile', '/order'])
+
+ctx['next_action'] = wait
+
+status_msg = {wait: 'waiting',
+              work: 'working',
+              get_maintenance: 'getting maintenance',
+              pay_for_maintenance: 'paying for maintenance',
+              retire: 'retiring drone',
+              register_drone: 'registering_drone',
+              update_profile: 'updating profile',
+              update_order: 'updating order',
+              None: 'drone is out of service'
+              }
+
+
+@app.route('/')
+def home():
+    if not ctx['drone_started']:
+        register_drone()
+        ctx['drone_started'] = True
+
+    if not ctx['next_action'] is None:
+        ctx['next_action'] = ctx['next_action']()
+
+    return render_template('index.html', msg=status_msg[ctx['next_action']])
+
+
 @sio.on('message', namespace='/order')
 def on_message(order):
     print('looking for work')
@@ -66,71 +164,6 @@ def on_message(order):
     # TODO: pick a job based on it's status
     if "drone" in order:
         ctx['current_job'] = order
-
-
-def wait():
-    print('waiting')
-    profile['status'] = 'waiting'
-    ctx['total_wait_cycles'] += 1
-
-    update_profile()
-    sleep(10)
-
-    end_of_life = ctx['total_jobs'] >= ctx['max_total_jobs']
-    hired = not (ctx['current_job'] == '')
-    idle_too_long = ctx['total_wait_cycles'] >= ctx['max_wait_cycles']
-
-    if end_of_life or idle_too_long:
-        retire()
-    elif hired:
-        work()
-    else:
-        wait()
-
-
-def work():
-    print('working')
-    ctx['jobs_since_maintenance'] += 1
-    ctx['total_jobs'] += 1
-
-    profile['status'] = 'working'
-    update_profile()
-
-    sleep(10)
-    # TODO: update the order status
-    ctx['current_job'] = ''
-
-    jobs_since_maintenance = ctx['jobs_since_maintenance']
-    max_consecutive_jobs = ctx['max_consecutive_jobs']
-    if jobs_since_maintenance < max_consecutive_jobs:
-        wait()
-    else:
-        get_maintenance()
-
-
-def get_maintenance():
-    print('getting maintenance')
-    profile['status'] = 'under maintenance'
-    update_profile()
-
-    ctx['jobs_since_maintenance'] = 0
-    sleep(10)
-    pay_for_maintenance()
-
-
-def pay_for_maintenance():
-    print('paying for maintenance')
-    profile['status'] = 'paying for maintenance'
-    update_profile()
-    sleep(10)
-    wait()
-
-
-def retire():
-    print('retiring')
-    profile['status'] = 'retired'
-    update_profile()
-    print("drone is retired")
 
 
 if __name__ == '__main__':
