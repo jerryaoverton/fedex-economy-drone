@@ -1,1 +1,1 @@
-web: gunicorn fedex_economy_smartcontract:app --log-file=-
+web: gunicorn fedex_economy_drone:app --log-file=-
