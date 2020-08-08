@@ -2,6 +2,9 @@ import os
 from time import sleep
 import socketio
 import requests
+from flask import Flask
+
+app = Flask(__name__)
 
 ctx = {'current_job': '',
        'max_total_jobs': 10,
@@ -25,6 +28,11 @@ profile = {'image_url': 'www.pic.com/drone.jpg',
            }
 fedex_token_network = 'http://127.0.0.1:5000/'
 
+@app.route('/')
+def home():
+    register_drone()
+    wait()
+    return "drone is running"
 
 def register_drone():
     print('registering drone')
@@ -124,6 +132,5 @@ def retire():
     print("drone is retired")
 
 
-register_drone()
-wait()
-
+if __name__ == '__main__':
+    app.run(debug=True, port=5001)
