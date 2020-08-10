@@ -3,6 +3,7 @@ from time import sleep
 import socketio
 import requests
 from flask import Flask, render_template
+import uuid
 
 app = Flask(__name__)
 
@@ -10,7 +11,8 @@ app = Flask(__name__)
 # define the state of the drone
 
 
-ctx = {'drone_started': False,
+ctx = {'drone_id':'',
+       'drone_started': False,
        'next_action': None,
        'current_job': '',
        'max_total_jobs': 10,
@@ -18,16 +20,28 @@ ctx = {'drone_started': False,
        'total_jobs': 0,
        'total_wait_cycles': 0,
        'max_wait_cycles': 10,
-       'jobs_since_maintenance': 0}
+       'jobs_since_maintenance': 0,
+       'current_battery_usage':0,
+       'current_fexcoins':0}
 
 
-profile = {'image_url': 'www.pic.com/drone.jpg',
-           'profile_url': 'www.mydroneprofile.com',
-           'description': 'A very useful drone',
-           'tags': 'drone, delivery',
-           'rating': 4,
-           'status': 'idle'
-           }
+profile={'first_name': 'Drone',
+                            'last_name': '',
+                            'RegistrationType': 'Drone Service',
+                            'email':'',
+                            'BusinessType':'',
+                            'Address': '3600 Lancaster Avenue, Philadelphia, 19104',
+                            'area_code': '267',
+                            'phone': '897897987',
+                            'image_url': 'www.pic.com/profile.jpg',
+                            'profile_url': 'https://fedex-economy-drone.herokuapp.com/Drone_Info',
+                            'description': 'A very useful drone',
+                            'tags': 'drone, delivery',
+                            'rating': 4,
+                            'status': 'idle',
+                            'properties':'type:Quadcopter, capacity:2kgs, flyduration:10mins'
+                   }
+
 
 
 # define how the drone behaves
@@ -103,15 +117,24 @@ def retire():
 def register_drone():
     print('registering drone')
     svc = '/register_user'
-    params = '?user_id=drone'
+    drone_id='drone-'+str(uuid.uuid1())
+    params = '?user_id='+drone_id
     url = smart_contract + svc + params
     _msg = requests.get(url).content
+    ctx['drone_id']=drone_id
 
+def drone_receive_payment(sender,amount):
+    print('receving payment')
+    svc = '/pay'
+    params = '?sender='+sender+'&receiver='+ctx['drone_id']+'&amount='+amount
+    url = smart_contract + svc + params
+    _msg = requests.get(url).content
+    # ctx['current_fexcoins']+=amount
 
 def update_profile():
     print('updating drone profile')
     svc = '/update_profile'
-    params = '?user_id=drone&profile=' + str(profile)
+    params = '?user_id='+ctx['drone_id']+'&profile=' + str(profile)
     url = smart_contract + svc + params
     _msg = requests.get(url).content
 
@@ -149,12 +172,17 @@ status_msg = {wait: 'waiting',
 def home():
     if not ctx['drone_started']:
         register_drone()
+        drone_receive_payment('fedex','100')
         ctx['drone_started'] = True
 
     if not ctx['next_action'] is None:
         ctx['next_action'] = ctx['next_action']()
+    
+    return render_template('index.html', msg=status_msg[ctx['next_action']],drone_id=ctx['drone_id'])
 
-    return render_template('index.html', msg=status_msg[ctx['next_action']])
+@app.route('/Drone_Info')
+def drone_home():
+    return render_template('Drone.html')
 
 
 @sio.on('message', namespace='/order')

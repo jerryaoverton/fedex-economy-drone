@@ -1,1 +1,1 @@
-web: gunicorn fedex_economy_drone:app --log-file=-
+web: gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 fedex_economy_drone:app --log-file=-

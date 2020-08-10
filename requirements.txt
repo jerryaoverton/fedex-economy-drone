@@ -22,3 +22,5 @@ websocket-client==0.57.0
 websockets==8.1
 Werkzeug==1.0.1
 yarl==1.5.1
+gevent==1.4.0
+gevent-websocket==0.10.1
