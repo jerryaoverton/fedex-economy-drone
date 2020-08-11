@@ -8,6 +8,7 @@ import ast
 from random import randint
 import json
 import datetime
+import fedex_api
 app = Flask(__name__)
 
 
@@ -116,25 +117,31 @@ def get_maintenance():
     print('getting maintenance')
     #find list of service providers
     get_all_service_providers()
-    provider=get_best_provider()
-    profile['status'] = 'under maintenance'
-    update_profile()
-    #TODO add order to service provider
-    order_for_service = {'supplier': provider['first_name'],
-                        'customer': ctx['drone_id'],
-                        'payment_method': 'tokens',
-                        'price': provider['ServiceFee'],
-                        'delivery_provider': 'ServiceProvider',
-                        'order_details': 'description:provide maintenance service to Drone',
-                        'delivery_address':'3600 Lancaster avenue, Philadelphia, 19104',
-                        'terms_and_conditions': 'must not harm drone',
-                        'status': 'active',
-                        'status_date': '08//06/2020'
-                        }
-    update_order(order_for_service)
-    # ctx['jobs_since_maintenance'] = 0
-    sleep(10)
-    return check_if_maintenance_completed
+    if serviceproviders.count>0: 
+        provider=get_best_provider()
+        profile['status'] = 'under maintenance'
+        update_profile()
+        #TODO add order to service provider
+        order_for_service = {'supplier': provider['first_name'],
+                            'customer': ctx['drone_id'],
+                            'payment_method': 'tokens',
+                            'price': provider['ServiceFee'],
+                            'delivery_provider': 'ServiceProvider',
+                            'order_details': 'description:provide maintenance service to Drone',
+                            'delivery_address':'3600 Lancaster avenue, Philadelphia, 19104',
+                            'terms_and_conditions': 'must not harm drone',
+                            'status': 'active',
+                            'status_date': '08//06/2020'
+                            }
+        update_order(order_for_service)
+        # ctx['jobs_since_maintenance'] = 0
+        sleep(10)
+        return check_if_maintenance_completed
+    else:
+         print('No service provider for maintenance')
+         ctx['jobs_since_maintenance']
+         sleep(10)
+         return wait
 
 def get_all_service_providers():
     print('get service providers')
@@ -171,6 +178,13 @@ def get_balance():
     url = smart_contract + svc + params
     _msg = requests.get(url).content
     ctx['current_fexcoins']=int(_msg)
+
+def get_user_profile(user_id):
+    svc = '/user_profile'
+    params = '?user_id='+user_id
+    url = smart_contract + svc + params
+    profile = requests.get(url).content
+    return profile
 
 def pay_for_maintenance(receiver,amount):
     print('paying for maintenance')
@@ -287,11 +301,10 @@ def on_message(order):
         
         if profile['status']=='under maintenance':
             print('when in maintenance')
-            # print(order)
+         
             order_dict=ast.literal_eval(order)
-            # print("status"+order_dict['status']+"drone_id"+order_dict['customer']+"drone"+ctx['drone_id'])
-            # print(order_dict['status']=='complete')
-            # print(order_dict['customer']==ctx['drone_id'])
+            
+     
             #TODO check if order has any service provider drone maintenance related information
             if order_dict['status']=='complete' and order_dict['customer']==ctx['drone_id']:
                     # profile['status']='waiting'
@@ -302,13 +315,42 @@ def on_message(order):
         
 
         else:
+            # print('success')
             order_dict=ast.literal_eval(order)
             order_details=dict(s.split(':') for s in order_dict['order_details'].split(','))
             profile_properties=dict(s.split(':') for s in profile['properties'].split(','))
             
-            #TODO pick up a job only when the order is less than 5 miles
+            #API 1 -Address Validation
+            #Check if customer address is valid for delivery
             
-            if profile['status']!='under maintenance' and profile['status']!='retired' and order_dict['delivery_provider'].upper()=='DRONE' and order_dict['status']=='active' and float(order_details['shipment_weight'])<=float(profile_properties['capacity_lbs']) :
+            customer=get_user_profile(order_dict['customer'])
+            customer_profile=json.loads(customer)
+            address_check=fedex_api.validate_address(customer_profile['street'],customer_profile['city'],customer_profile['stateorprovince'],customer_profile['postalcode'],customer_profile['countrycode'])
+            # print(address_check)
+            #only process if order is not invalid
+            if address_check!= 'valid' and order_dict['status']!='Invalid Address':
+                order_dict['status']='Invalid Address'
+                update_order(str(order_dict))
+            
+            # else:
+            #TODO pick up a job only when the priority shipping option available in that location
+            sender_address= {'street':profile['street'],
+                            'city':profile['city'],
+                            'stateorprovince':profile['stateorprovince'],
+                            'postalcode':profile['postalcode'],
+                            'countrycode':profile['countrycode']
+            }
+            # print(sender_address)
+            recipient_address= {'street': customer_profile['street'],
+                            'city':customer_profile['city'],
+                            'stateorprovince':customer_profile['stateorprovince'],
+                            'postalcode':customer_profile['postalcode'],
+                            'countrycode':customer_profile['countrycode']
+            }
+            serve_from_my_location=fedex_api.service_availability(sender_address,recipient_address)
+
+
+            if serve_from_my_location>0 and profile['status']!='under maintenance' and profile['status']!='retired' and order_dict['delivery_provider'].upper()=='DRONE' and order_dict['status']=='active' and float(order_details['shipment_weight'])<=float(profile_properties['capacity_lbs']) :
                 ctx['current_job'] = order
                 order_dict['status']='processing'
                 update_order(str(order_dict))
@@ -316,7 +358,7 @@ def on_message(order):
                 order_dict['status']='operational_error'
                 update_order(str(order_dict))
      except Exception as e:
-        print(str(e))
+        print('exception happpened due to ' +str(e.with_traceback))
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
 
