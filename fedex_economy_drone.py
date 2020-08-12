@@ -94,7 +94,7 @@ def work():
    
     order_dict=ast.literal_eval(ctx['current_job'])
     
-    order_dict['status']='completed'
+    order_dict['status']='complete'
     update_order(str(order_dict))
 
     #complete the task and get payment from supplier- as customer is being charged by business
