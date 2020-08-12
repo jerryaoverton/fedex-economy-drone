@@ -123,8 +123,11 @@ def get_maintenance():
         provider=get_best_provider()
         profile['status'] = 'under maintenance'
         update_profile()
-        
-        order_for_service = {'supplier': provider['first_name'],
+        unique_order_id=uuid.uuid1()
+        print(unique_order_id)
+        order_for_service = {
+                            'order_id':str(unique_order_id),
+                            'supplier': provider['first_name'],
                             'customer': ctx['drone_id'],
                             'payment_method': 'tokens',
                             'price': provider['ServiceFee'],
