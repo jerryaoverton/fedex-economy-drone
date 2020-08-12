@@ -23,7 +23,7 @@ ctx = {'drone_id':'',
        'max_consecutive_jobs': 3,
        'total_jobs': 0,
        'total_wait_cycles': 0,
-       'max_wait_cycles': 10,
+       'max_wait_cycles': 50,
        'jobs_since_maintenance': 0,
        'current_battery_usage':0,
        'current_fexcoins':0,
@@ -97,8 +97,8 @@ def work():
     order_dict['status']='completed'
     update_order(str(order_dict))
 
-    #complete the task and get payment
-    drone_receive_payment(order_dict['customer'],order_dict['price'])
+    #complete the task and get payment from supplier- as customer is being charged by business
+    drone_receive_payment(order_dict['supplier'],order_dict['price'])
 
     ctx['current_job'] = ''
     ctx['jobs_since_maintenance'] += 1
@@ -113,7 +113,7 @@ def work():
 def get_maintenance():
     #check the balance to decide best service provider
     get_balance()
-    #TODO include balance validation
+   
     print('getting maintenance')
     #find list of service providers
     get_all_service_providers()
@@ -123,7 +123,7 @@ def get_maintenance():
         provider=get_best_provider()
         profile['status'] = 'under maintenance'
         update_profile()
-        #TODO add order to service provider
+        
         order_for_service = {'supplier': provider['first_name'],
                             'customer': ctx['drone_id'],
                             'payment_method': 'tokens',
@@ -221,6 +221,8 @@ def check_if_maintenance_completed():
 
 def retire():
     print('retiring')
+    get_balance()
+    drone_send_payment('fedex',ctx['current_fexcoins'])
     profile['status'] = 'retired'
     update_profile()
     print("drone is retired")
