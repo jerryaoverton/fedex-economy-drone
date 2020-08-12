@@ -225,7 +225,7 @@ def check_if_maintenance_completed():
 def retire():
     print('retiring')
     get_balance()
-    drone_send_payment('fedex',ctx['current_fexcoins'])
+    drone_send_payment('fedex',str(ctx['current_fexcoins']))
     profile['status'] = 'retired'
     update_profile()
     print("drone is retired")
