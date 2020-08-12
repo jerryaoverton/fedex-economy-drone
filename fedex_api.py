@@ -182,4 +182,4 @@ sender={
                     'countrycode':'US'
             }
     
-location_check(sender,1)
+# validate_address('3600 Lancaster Avenue',)

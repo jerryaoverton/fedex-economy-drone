@@ -140,7 +140,7 @@ def get_maintenance():
         sleep(10)
         return check_if_maintenance_completed
     else:
-         print('No service provider for maintenance')
+         print('No service provider for maintenance in budget')
          ctx['jobs_since_maintenance']=0
          sleep(10)
          return wait
@@ -171,7 +171,7 @@ def get_best_provider():
     print(cost+"is best")
     best_provider=serviceproviders[0]
     for provider in serviceproviders:
-        if cost< provider['ServiceFee']:
+        if cost< provider['ServiceFee'] and ctx['current_fexcoins']>=provider['ServiceFee']:
             best_provider=provider
     
     return best_provider
@@ -207,6 +207,7 @@ def pay_for_maintenance(receiver,amount):
     profile['status'] = 'paying for maintenance'
     drone_send_payment(receiver,amount)
     update_profile()
+    # ctx['next_action'] = wait
     ctx['jobs_since_maintenance'] = 0
     sleep(10)
     return wait
@@ -338,7 +339,7 @@ def on_message(order):
             customer=get_user_profile(order_dict['customer'])
             customer_profile=json.loads(customer)
             address_check=fedex_api.validate_address(customer_profile['street'],customer_profile['city'],customer_profile['stateorprovince'],customer_profile['postalcode'],customer_profile['countrycode'])
-         
+            # print(address_check)
             #only process if order is not invalid
             if address_check!= 'valid' and order_dict['status']!='Invalid Address':
                 order_dict['status']='Invalid Address'
