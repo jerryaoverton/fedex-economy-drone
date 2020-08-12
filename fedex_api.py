@@ -67,12 +67,13 @@ def validate_address(streetLines,city,state,postalcode,countrycode):
                 
                 return "valid"
 
-def location_check(streetLines,city,state,postalcode,countrycode,distance):
+def location_check(sender,maxResults):
     access_token=authenticate()
     
     url = fedex_url+"location/v1/locations"
 
-    
+    company_name=''
+    company_address=''
     location_payload={
         'locationsSummaryRequestControlParameters' :
         {
@@ -80,17 +81,18 @@ def location_check(streetLines,city,state,postalcode,countrycode,distance):
                 'units':'MI',
                 'value':'4'
             },
-            'maxResults':'5',
-            'customerTranscationId':'DroneID'
+            'maxResults':''+str(maxResults)+'',
+            'customerTransactionId':'DroneID'
         },
         'location':
         {
             'address':{
-                    'streetLines':[''+streetLines+''],
-                    'city':''+city+'',
-                    'stateOrProvinceCode':''+state+'',
-                    'postalCode':''+postalcode+'',
-                    'countryCode':''+countrycode+''
+                   
+                   'streetLines':[''+str(sender['street'])+''],
+                    'city':''+sender['city']+'',
+                    'stateOrProvinceCode':''+sender['stateorprovince']+'',
+                    'postalCode':''+sender['postalcode']+'',
+                    'countryCode':''+sender['countrycode']+''
             }
         }
     }
@@ -105,7 +107,18 @@ def location_check(streetLines,city,state,postalcode,countrycode,distance):
     response = requests.request("POST", url, data=payload, headers=headers)
 
     response_dict=json.loads(response.text)
-    # print(response_dict)
+
+    if 'output' in response_dict:
+        all_locations=response_dict['output']['locationDetailList']
+        for items in all_locations:
+            name= items['contactAndAddress']['contact']
+            company_name=name['companyName']
+            address=items['contactAndAddress']['address']
+            company_address=str(address['streetLines'][0]) +' '+str(address['city'])+' '+str(address['stateOrProvinceCode'])+' '+str(address['postalCode'])+' '+str(address['countryCode'])
+
+    location=company_name.replace('&','%26')+' '+company_address
+    # print(location)
+    return str(location)
 
 def service_availability(sender,receiver):
     access_token=authenticate()
@@ -146,7 +159,7 @@ def service_availability(sender,receiver):
         'X-locale': "en_US",
         'Authorization': 'Bearer '+access_token
         }
-
+    # TODO CHECK IF THIS IS BETTER OPTION FEDEX_EXPRESS
     response = requests.request("POST", url, data=payload, headers=headers)
     priority_options=0
     response_dict=json.loads(response.text)
@@ -160,3 +173,13 @@ def service_availability(sender,receiver):
    
     return priority_options
  
+sender={
+     
+                    'street':['3600 Lancaster Avenue'],
+                    'city':'Philadelphia',
+                    'stateorprovince':'PA',
+                    'postalcode':'19104',
+                    'countrycode':'US'
+            }
+    
+location_check(sender,1)

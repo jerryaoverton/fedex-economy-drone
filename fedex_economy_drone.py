@@ -83,13 +83,13 @@ def wait():
 def work():
     
     print('working')
-    #TODO disabling maintenance till order is validated-uncomment below to start it
-    # ctx['jobs_since_maintenance'] += 1
+    
+    
     ctx['total_jobs'] += 1
 
     profile['status'] = 'working'
     update_profile()
-    #TODO check the address of destination before moving to the location 
+  
     sleep(10)
    
     order_dict=ast.literal_eval(ctx['current_job'])
@@ -101,7 +101,7 @@ def work():
     drone_receive_payment(order_dict['customer'],order_dict['price'])
 
     ctx['current_job'] = ''
-    
+    ctx['jobs_since_maintenance'] += 1
     jobs_since_maintenance = ctx['jobs_since_maintenance']
     max_consecutive_jobs = ctx['max_consecutive_jobs']
     if jobs_since_maintenance < max_consecutive_jobs:
@@ -117,7 +117,9 @@ def get_maintenance():
     print('getting maintenance')
     #find list of service providers
     get_all_service_providers()
-    if serviceproviders.count>0: 
+
+    if len(serviceproviders)>0: 
+        nearest_fedex=find_nearest_fedEx_location()
         provider=get_best_provider()
         profile['status'] = 'under maintenance'
         update_profile()
@@ -127,11 +129,11 @@ def get_maintenance():
                             'payment_method': 'tokens',
                             'price': provider['ServiceFee'],
                             'delivery_provider': 'ServiceProvider',
-                            'order_details': 'description:provide maintenance service to Drone',
-                            'delivery_address':'3600 Lancaster avenue, Philadelphia, 19104',
+                            'order_details': 'Meet drone at delivery address for maintenance',
+                            'delivery_address':str(nearest_fedex),
                             'terms_and_conditions': 'must not harm drone',
                             'status': 'active',
-                            'status_date': '08//06/2020'
+                            'status_date': '08/06/2020'
                             }
         update_order(order_for_service)
         # ctx['jobs_since_maintenance'] = 0
@@ -139,7 +141,7 @@ def get_maintenance():
         return check_if_maintenance_completed
     else:
          print('No service provider for maintenance')
-         ctx['jobs_since_maintenance']
+         ctx['jobs_since_maintenance']=0
          sleep(10)
          return wait
 
@@ -154,14 +156,17 @@ def get_all_service_providers():
        for key,value in user.items():
             if key=='profile':
                 try:
-                 if value['RegistrationType']=='ServiceProvider' and value['ServiceType']=='DroneMaintenance':
-                     serviceproviders.append(value)
-                except Exception:
-                 continue
-          
+                    if value['RegistrationType']=='ServiceProvider' and value['ServiceType']=='DroneMaintenance':
+                        serviceproviders.append(value)
+                except Exception as e:
+                        continue
+                #  print('exception is '+ str(e.with_traceback))
+    return serviceproviders
     # print(serviceproviders)
 
 def get_best_provider():
+  
+    #compare the costs between service providers to find best provider
     cost=serviceproviders[0]['ServiceFee']
     print(cost+"is best")
     best_provider=serviceproviders[0]
@@ -170,7 +175,18 @@ def get_best_provider():
             best_provider=provider
     
     return best_provider
-         
+
+def find_nearest_fedEx_location():
+    #find fedex location nearest to drone to go there for service. so just need 1 nearest location
+    sender_address= {'street':profile['street'],
+                            'city':profile['city'],
+                            'stateorprovince':profile['stateorprovince'],
+                            'postalcode':profile['postalcode'],
+                            'countrycode':profile['countrycode']
+            }
+    nearest_fedex_office=fedex_api.location_check(sender_address,1)
+    return nearest_fedex_office
+
 def get_balance():
     print('get drone balance')
     svc = '/user_balance'
@@ -275,8 +291,8 @@ status_msg = {wait: 'waiting',
 
 @app.route('/')
 def home():
-
     
+                  
     if not ctx['drone_started']:
         register_drone()
         drone_receive_payment('fedex','100')
@@ -307,10 +323,6 @@ def on_message(order):
      
             #TODO check if order has any service provider drone maintenance related information
             if order_dict['status']=='complete' and order_dict['customer']==ctx['drone_id']:
-                    # profile['status']='waiting'
-                    # ctx['jobs_since_maintenance'] = 0
-                    # sleep(10)
-                    # print('completed reset')
                     return pay_for_maintenance(order_dict['supplier'],order_dict['price'])
         
 
@@ -326,21 +338,20 @@ def on_message(order):
             customer=get_user_profile(order_dict['customer'])
             customer_profile=json.loads(customer)
             address_check=fedex_api.validate_address(customer_profile['street'],customer_profile['city'],customer_profile['stateorprovince'],customer_profile['postalcode'],customer_profile['countrycode'])
-            # print(address_check)
+         
             #only process if order is not invalid
             if address_check!= 'valid' and order_dict['status']!='Invalid Address':
                 order_dict['status']='Invalid Address'
                 update_order(str(order_dict))
-            
-            # else:
-            #TODO pick up a job only when the priority shipping option available in that location
+           
+            # pick up a job only when the priority shipping option available in that location
             sender_address= {'street':profile['street'],
                             'city':profile['city'],
                             'stateorprovince':profile['stateorprovince'],
                             'postalcode':profile['postalcode'],
                             'countrycode':profile['countrycode']
             }
-            # print(sender_address)
+            
             recipient_address= {'street': customer_profile['street'],
                             'city':customer_profile['city'],
                             'stateorprovince':customer_profile['stateorprovince'],
