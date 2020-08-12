@@ -236,7 +236,8 @@ def retire():
 def register_drone():
     print('registering drone')
     svc = '/register_user'
-    drone_id='drone-'+str(uuid.uuid1())
+    # drone_id='drone-'+str(uuid.uuid1())
+    drone_id='drone-fedex-economy'
     params = '?user_id='+drone_id
     url = smart_contract + svc + params
     _msg = requests.get(url).content
