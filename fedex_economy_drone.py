@@ -29,7 +29,7 @@ ctx = {'drone_id':'',
        'current_fexcoins':0,
        'max_weight':5}
 
-
+providerId=''
 profile={'first_name': 'Drone',
                             'last_name': '',
                             'RegistrationType': 'Drone Service',
@@ -124,18 +124,20 @@ def get_maintenance():
         profile['status'] = 'under maintenance'
         update_profile()
         unique_order_id=uuid.uuid1()
-        print(unique_order_id)
+        # print(unique_order_id)
         order_for_service = {
                             'order_id':str(unique_order_id),
-                            'supplier': provider['first_name'],
-                            'customer': ctx['drone_id'],
+                            'supplier': provider['id'],
+                            'customer': 'drone-fedex-economy',
+                            # ctx['drone_id'],
                             'payment_method': 'tokens',
-                            'price': provider['ServiceFee'],
+                            'price': provider['profile']['ServiceFee'],
                             'delivery_provider': 'ServiceProvider',
                             'order_details': 'Meet drone at delivery address for maintenance',
-                            'delivery_address':str(nearest_fedex),
+                            'deliveryAddress':str(nearest_fedex),
+                            'nameandphone':profile['first_name']+''+profile['phone'],
                             'terms_and_conditions': 'must not harm drone',
-                            'status': 'active',
+                            'status': 'ServicesforDrone',
                             'status_date': '08/06/2020'
                             }
         update_order(order_for_service)
@@ -156,27 +158,31 @@ def get_all_service_providers():
     array_users=eval(users)
     
     for user in array_users:
+   
        for key,value in user.items():
-            if key=='profile':
+        
+           if key=='profile':
                 try:
                     if value['RegistrationType']=='ServiceProvider' and value['ServiceType']=='DroneMaintenance':
-                        serviceproviders.append(value)
+                        serviceproviders.append(user)
                 except Exception as e:
                         continue
-                #  print('exception is '+ str(e.with_traceback))
-    return serviceproviders
+                  
     # print(serviceproviders)
+    return serviceproviders
+    
 
 def get_best_provider():
   
     #compare the costs between service providers to find best provider
-    cost=serviceproviders[0]['ServiceFee']
+    
+    cost=serviceproviders[0]['profile']['ServiceFee']
     print(cost+"is best")
     best_provider=serviceproviders[0]
     for provider in serviceproviders:
-        if cost< provider['ServiceFee'] and ctx['current_fexcoins']>=provider['ServiceFee']:
+        if cost< provider['profile']['ServiceFee'] and ctx['current_fexcoins']>=provider['profile']['ServiceFee']:
             best_provider=provider
-    
+    print(best_provider)
     return best_provider
 
 def find_nearest_fedEx_location():
@@ -299,7 +305,7 @@ status_msg = {wait: 'waiting',
 @app.route('/')
 def home():
     
-                  
+    # get_maintenance()
     if not ctx['drone_started']:
         register_drone()
         drone_receive_payment('fedex','100')
