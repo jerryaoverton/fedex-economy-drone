@@ -85,7 +85,7 @@ def work():
     
     print('working')
     
-    
+
     ctx['total_jobs'] += 1
 
     profile['status'] = 'working'
