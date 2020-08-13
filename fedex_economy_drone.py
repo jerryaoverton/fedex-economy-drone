@@ -60,7 +60,8 @@ orders=[]
 def wait():
     print('waiting')
     profile['status'] = 'waiting'
-    ctx['total_wait_cycles'] += 1
+    # for testing and demo - to be uncommented in production
+    # ctx['total_wait_cycles'] += 1
 
     update_profile()
     sleep(10)
