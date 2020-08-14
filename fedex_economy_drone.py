@@ -98,7 +98,7 @@ def work():
     order_dict['status']='complete'
     update_order(str(order_dict))
 
-    #complete the task and get payment from supplier- as customer is being charged by business
+    #complete the task and get payment from supplier- as customer is being charged by business.
     drone_receive_payment(order_dict['supplier'],order_dict['price'])
 
     ctx['current_job'] = ''
